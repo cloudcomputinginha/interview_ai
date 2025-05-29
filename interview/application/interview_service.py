@@ -1,11 +1,11 @@
 from interview.domain.interview import InterviewSession
 from interview.domain.repository.interview_repo import InterviewRepository
-from interview.infra.llm.llm_factory import LLMClientFactory
+from interview.domain.llm.llm_client import LLMClient
 from typing import List
 import uuid
 
 class InterviewService:
-    def __init__(self, repo: InterviewRepository, llm: LLMClientFactory):
+    def __init__(self, repo: InterviewRepository, llm: LLMClient):
         self.repo = repo
         self.llm = llm
 
