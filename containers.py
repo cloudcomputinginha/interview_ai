@@ -33,7 +33,7 @@ class LLMClientFactory:
 
 class InterviewContainer(containers.DeclarativeContainer):
     wiring_config = containers.WiringConfiguration(
-        modules=["interview.interface.controllers"]  # 의존성 자동 주입 대상 모듈
+        modules=["interview.interface.controllers"]
     )
 
     repo = providers.Singleton(InterviewRepositoryFactory.get_repository)

@@ -38,7 +38,6 @@ class InterviewService:
         if not session or index >= len(session.qa_flow):
             return None
 
-        # session 객체 전체를 전달
         follow_ups = self.llm.generate_follow_up(session, index)
         session.qa_flow[index].follow_ups = [{"question": q, "answer": None} for q in follow_ups[:2]]
         self.repo.update_session(session)

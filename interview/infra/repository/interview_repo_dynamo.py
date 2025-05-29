@@ -16,7 +16,7 @@ class InterviewRepositoryDynamo(InterviewRepository):
         self.table.put_item(Item=session.dict())
 
     def update_session(self, session: InterviewSession):
-        self.save_session(session)  # DynamoDB는 put_item으로 upsert 가능
+        self.save_session(session)
 
     def get_all_sessions(self):
         response = self.table.scan()
