@@ -6,16 +6,20 @@ import os
 class InterviewRepositoryMongo(InterviewRepository):
     def __init__(self):
         mongo_uri = os.getenv("MONGO_URI")
+        if not mongo_uri:
+            raise ValueError("MONGO_URI environment variable is required")
         client = MongoClient(mongo_uri)
         self.collection = client["interview_db"]["sessions"]
 
-    def save_session(self, session: InterviewSession):
+    def save_session(self, session: InterviewSession) -> InterviewSession:
         self.collection.insert_one(session.dict())
+        return session
 
-    def update_session(self, session: InterviewSession):
+    def update_session(self, session: InterviewSession) -> InterviewSession:
         self.collection.replace_one(
             {"session_id": session.session_id}, session.dict(), upsert=True
         )
+        return session
 
     def get_all_sessions(self):
         return [InterviewSession(**doc) for doc in self.collection.find()]
