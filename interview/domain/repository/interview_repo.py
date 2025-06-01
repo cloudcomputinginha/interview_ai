@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from interview.domain.interview import InterviewSession
 
-class InterviewRepository:
+class InterviewRepository(ABC):
     @abstractmethod
     def __init__(self): ...
 

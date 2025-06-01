@@ -35,7 +35,12 @@ class BedrockClient:
             SystemMessage(content="너는 면접 질문을 생성하는 면접관이야."),
             HumanMessage(content=prompt)
         ]
-        return self.llm.invoke(messages).content
+        
+        try:
+            return self.llm.invoke(messages).content
+        except Exception as e:
+            print(f"Error generating questions: {e}")
+            return None
 
     def generate_follow_up(self, session: InterviewSession, index: int) -> list:
         if not self.use_llm:
@@ -59,8 +64,12 @@ class BedrockClient:
             )
         )
 
-        response = self.llm.invoke(messages).content
-        return [line.strip() for line in response.split("\n") if line.strip()]
+        try:
+            response = self.llm.invoke(messages).content
+            return [line.strip() for line in response.split("\n") if line.strip()]
+        except Exception as e:
+            print(f"Error generating follow-up questions: {e}")
+            return None
 
     def generate_feedback(self, session: InterviewSession, index: int) -> str:
         if not self.use_llm:
@@ -75,7 +84,11 @@ class BedrockClient:
                                             네가 생성한 피드백을 클라이언트에게 제공하는 규칙 기반 알고리즘 수행 예정이야.
                                             그러니 피드백 내용만 답변해주고, "예, 알겠습니다"와 같은 답변은 절대 포함시키지 마."""))
 
-        return self.llm.invoke(messages).content
+        try:
+            return self.llm.invoke(messages).content
+        except Exception as e:
+            print(f"Error generating feedback: {e}")
+            return None
 
     def generate_final_report(self, session: InterviewSession) -> str:
         if not self.use_llm:
@@ -90,4 +103,8 @@ class BedrockClient:
                                             네가 생성한 종합 평가를 클라이언트에게 제공하는 규칙 기반 알고리즘 수행 예정이야.
                                             그러니 종합 평가 내용만 답변해주고, "예, 알겠습니다"와 같은 답변은 절대 포함시키지 마."""))
 
-        return self.llm.invoke(messages).content
+        try:
+            return self.llm.invoke(messages).content
+        except Exception as e:
+            print(f"Error generating final report: {e}")
+            return None

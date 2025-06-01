@@ -56,6 +56,8 @@ class InterviewService:
 
     def generate_feedback(self, session_id: str, index: int) -> InterviewSession:
         session = self.repo.get_session_by_id(session_id)
+        if not session or index >= len(session.qa_flow):
+            return None
         feedback = self.llm.generate_feedback(session, index)
         session.qa_flow[index].feedback = feedback
         self.repo.update_session(session)
@@ -63,6 +65,8 @@ class InterviewService:
 
     def generate_final_report(self, session_id: str) -> InterviewSession:
         session = self.repo.get_session_by_id(session_id)
+        if not session:
+            return None
         final_report = self.llm.generate_final_report(session)
         session.final_report = final_report
         self.repo.update_session(session)
@@ -74,7 +78,7 @@ class InterviewService:
     def get_session_by_id(self, session_id: str) -> InterviewSession:
         return self.repo.get_session_by_id(session_id)
 
-    def get_session_by_interview_and_member_interview_id(self, interview_id: str, member_interview_id: str) -> List[InterviewSession]:
+    def get_session_by_interview_and_member_interview_id(self, interview_id: str, member_interview_id: str) -> InterviewSession:
         return self.repo.get_session_by_interview_and_member_interview_id(interview_id, member_interview_id)
 
     def delete_session(self, session_id: str) -> bool:

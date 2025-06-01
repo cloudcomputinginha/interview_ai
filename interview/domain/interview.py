@@ -8,7 +8,7 @@ class FollowUpQA(BaseModel):
 class QA(BaseModel):
     question: str
     answer: Optional[str] = None
-    follow_ups: Optional[List[FollowUpQA]] = []
+    follow_ups: Optional[List[FollowUpQA]] = None
     feedback: Optional[str] = None
 
 class InterviewSession(BaseModel):

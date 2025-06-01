@@ -10,13 +10,17 @@ class InterviewRepositoryDynamo(InterviewRepository):
             "dynamodb",
             region_name=os.getenv("AWS_REGION", "us-east-1")
         )
-        self.table = self.dynamodb.Table(os.getenv("DYNAMO_TABLE_NAME"))
+        table_name = os.getenv("DYNAMO_TABLE_NAME")
+        if not table_name:
+            raise ValueError("DYNAMO_TABLE_NAME environment variable is required")
+        self.table = self.dynamodb.Table(table_name)
 
-    def save_session(self, session: InterviewSession):
+    def save_session(self, session: InterviewSession) -> InterviewSession:
         self.table.put_item(Item=session.dict())
+        return session
 
-    def update_session(self, session: InterviewSession):
-        self.save_session(session)
+    def update_session(self, session: InterviewSession) -> InterviewSession:
+        return self.save_session(session)
 
     def get_all_sessions(self):
         response = self.table.scan()
@@ -29,7 +33,7 @@ class InterviewRepositoryDynamo(InterviewRepository):
         items = response.get("Items", [])
         return InterviewSession(**items[0]) if items else None
 
-    def get_session_by_id(self, session_id: str):
+    def get_session_by_id(self, session_id: str) -> InterviewSession:
         response = self.table.scan(
             FilterExpression=Key("session_id").eq(session_id)
         )

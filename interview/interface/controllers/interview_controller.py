@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends
 from typing import List
 import json
+import os
 
 from interview.domain.interview import InterviewSession
 from interview.application.interview_service import InterviewService
@@ -14,8 +15,14 @@ def generate_questions(
     member_interview_id: str,
     service: InterviewService = Depends(get_interview_service)
     ):
-    with open("info.json", "r") as f:
-        info = json.load(f)
+    try:
+        info_file_path = os.getenv("INFO_FILE_PATH", "info.json")
+        with open(info_file_path, "r") as f:
+            info = json.load(f)
+    except FileNotFoundError:
+        raise HTTPException(status_code=500, detail="Info file not found")
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=500, detail="Invalid JSON in info file")
     session = service.create_session_with_questions(interview_id, member_interview_id, info)
     return session
 
