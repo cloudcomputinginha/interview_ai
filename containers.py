@@ -5,6 +5,7 @@ from interview.infra.repository.interview_repo_mongo import InterviewRepositoryM
 from interview.infra.repository.interview_repo_dynamo import InterviewRepositoryDynamo
 from interview.infra.llm.openai_client import GPTClient
 from interview.infra.llm.bedrock_client import BedrockClient
+from interview.infra.tts.polly_client import PollyClient
 import os
 
 class InterviewRepositoryFactory:
@@ -30,6 +31,16 @@ class LLMClientFactory:
         else:
             raise ValueError(f"Unsupported LLM_CLIENT: {provider}")
 
+class TTSClientFactory:
+    @staticmethod
+    def get_tts_client():
+        provider = os.getenv("TTS_PROVIDER", "polly").lower()
+
+        if provider == "polly":
+            return PollyClient()
+        else:
+            raise ValueError(f"Unsupported TTS_CLIENT: {provider}")
+
 
 class InterviewContainer(containers.DeclarativeContainer):
     wiring_config = containers.WiringConfiguration(
@@ -38,4 +49,5 @@ class InterviewContainer(containers.DeclarativeContainer):
 
     repo = providers.Singleton(InterviewRepositoryFactory.get_repository)
     llm = providers.Singleton(LLMClientFactory.get_llm_client)
-    service = providers.Factory(InterviewService, repo=repo, llm=llm)
+    tts = providers.Singleton(TTSClientFactory.get_tts_client)
+    service = providers.Factory(InterviewService, repo=repo, llm=llm, tts=tts)

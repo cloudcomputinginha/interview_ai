@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from dotenv import load_dotenv
 load_dotenv()
 from interview.interface.controllers import interview_controller
+from interview.interface.controllers import stt_controller
 from containers import InterviewContainer
 from fastapi.middleware.cors import CORSMiddleware
 import os
@@ -11,6 +12,7 @@ app = FastAPI()
 container = InterviewContainer()
 container.wire(modules=["interview.interface.controllers"])
 app.include_router(interview_controller.router)
+app.include_router(stt_controller.router)
 
 @app.get("/")
 def hello():

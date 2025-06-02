@@ -1,4 +1,5 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, Body, HTTPException, Depends
+from fastapi.requests import Request
 from typing import List
 import json
 import os
@@ -27,12 +28,13 @@ def generate_questions(
     return session
 
 @router.patch("/session/{session_id}/qa/{index}/answer")
-def answer_main_question(
+async def answer_main_question(
     session_id: str,
     index: int,
-    answer: str,
+    request: Request,
     service: InterviewService = Depends(get_interview_service)
     ):
+    answer = (await request.body()).decode("utf-8")
     session = service.answer_main_question(session_id, index, answer)
     if not session:
         raise HTTPException(status_code=404, detail="Session or question not found")
@@ -50,13 +52,14 @@ def generate_follow_up_questions(
     return session
 
 @router.patch("/session/{session_id}/qa/{index}/follow-up/{f_index}/answer")
-def answer_follow_up_question(
+async def answer_follow_up_question(
     session_id: str,
     index: int,
     f_index: int,
-    answer: str,
+    request: Request,
     service: InterviewService = Depends(get_interview_service)
     ):
+    answer = (await request.body()).decode("utf-8")
     session = service.answer_follow_up_question(session_id, index, f_index, answer)
     if not session:
         raise HTTPException(status_code=404, detail="Follow-up question not found")
