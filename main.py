@@ -6,11 +6,17 @@ from interview.interface.controllers import interview_controller
 from containers import InterviewContainer
 from fastapi.middleware.cors import CORSMiddleware
 import os
-
+from fastapi.middleware.cors import CORSMiddleware
 app = FastAPI()
 container = InterviewContainer()
 container.wire(modules=["interview.interface.controllers"])
 app.include_router(interview_controller.router)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.get("/")
 def hello():

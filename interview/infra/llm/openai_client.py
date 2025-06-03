@@ -1,10 +1,10 @@
 import os
 from interview.domain.interview import InterviewSession
-
+from interview.domain.llm.llm_client import LLMClient
 from langchain_openai import ChatOpenAI
 from langchain.schema import SystemMessage, HumanMessage
 
-class GPTClient:
+class GPTClient(LLMClient):
     def __init__(self):
         self.use_llm = os.getenv("USE_LLM", "false").lower() == "true"
         self.llm = ChatOpenAI(

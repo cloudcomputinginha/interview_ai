@@ -1,27 +1,33 @@
-from interview.domain.interview import InterviewSession
+from interview.domain.interview import InterviewSession, Cursor
 from interview.domain.repository.interview_repo import InterviewRepository
 from interview.domain.llm.llm_client import LLMClient
-from interview.domain.tts.tts_client import PollyClient
-from interview.domain.interview import Cursor
+from interview.domain.tts.tts_client import TTSClient
 from typing import List
 import uuid
 
+MAX_QUESTIONS = 5
+MAX_FOLLOW_UPS = 2
+
 class InterviewService:
-    def __init__(self, repo: InterviewRepository, llm: LLMClient, tts: PollyClient):
+    def __init__(self, repo: InterviewRepository, llm: LLMClient, tts: TTSClient):
         self.repo = repo
         self.llm = llm
         self.tts = tts
 
     def create_session_with_questions(self, interview_id, member_interview_id, info: dict) -> InterviewSession:
         question_text = self.llm.generate_questions(info)
-        questions = [q.strip() for q in question_text.split("\n") if q.strip()][:7]
+        questions = [q.strip() for q in question_text.split("\n") if q.strip()][:MAX_QUESTIONS]
 
         session_id = f"sess_{uuid.uuid4().hex[:8]}"
         qa_flow = []
 
         for i, q in enumerate(questions):
             filename = f"{session_id}_{i}.mp3"
-            s3_uri = self.tts.synthesize_to_s3(q, filename=filename)
+            try:
+                s3_uri = self.tts.synthesize_to_s3(q, filename=filename)
+            except Exception as e:
+                s3_uri = None
+
             qa_flow.append({
                 "question": q,
                 "audio_path": s3_uri,
@@ -60,7 +66,7 @@ class InterviewService:
         follow_ups = self.llm.generate_follow_up(session, index)
         enriched_follow_ups = []
 
-        for i, question in enumerate(follow_ups[:2]):
+        for i, question in enumerate(follow_ups[:MAX_FOLLOW_UPS]):
             filename = f"{session.session_id}_{index}_{i}.mp3"
             audio_path = self.tts.synthesize_to_s3(question, filename=filename)
             enriched_follow_ups.append({

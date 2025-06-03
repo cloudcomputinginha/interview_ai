@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List
 
-class TesseractOCRClient(ABC):
+class OCRClient(ABC):
     @abstractmethod
     def extract_text_from_image(self, image_path: str) -> str:
 
