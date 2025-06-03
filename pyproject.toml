@@ -15,7 +15,14 @@ dependencies = [
     "langchain-aws (>=0.2.23,<0.3.0)",
     "langchain-openai (>=0.3.18,<0.4.0)",
     "boto3 (>=1.38.23,<2.0.0)",
-    "dependency-injector (>=4.47.0,<5.0.0)"
+    "dependency-injector (>=4.47.0,<5.0.0)",
+    "pytesseract (>=0.3.13,<0.4.0)",
+    "pdf2image (>=1.17.0,<2.0.0)",
+    "pillow (>=11.2.1,<12.0.0)",
+    "amazon-transcribe (>=0.6.4,<0.7.0)",
+    "aiofile (>=3.9.0,<4.0.0)",
+    "ffmpeg (>=1.4,<2.0)",
+    "aiohttp (>=3.12.6,<4.0.0)"
 ]
 
 

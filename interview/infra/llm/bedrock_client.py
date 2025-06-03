@@ -1,10 +1,10 @@
 import os
 from interview.domain.interview import InterviewSession
-
+from interview.domain.llm.llm_client import LLMClient
 from langchain_aws import ChatBedrock
 from langchain.schema import SystemMessage, HumanMessage
 
-class BedrockClient:
+class BedrockClient(LLMClient):
     def __init__(self):
         self.use_llm = os.getenv("USE_LLM", "false").lower() == "true"
         if self.use_llm:

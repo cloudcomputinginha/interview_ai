@@ -1,25 +1,50 @@
-from interview.domain.interview import InterviewSession
+from interview.domain.interview import InterviewSession, Cursor
 from interview.domain.repository.interview_repo import InterviewRepository
 from interview.domain.llm.llm_client import LLMClient
+from interview.domain.tts.tts_client import TTSClient
 from typing import List
 import uuid
 
+MAX_QUESTIONS = 5
+MAX_FOLLOW_UPS = 2
+
 class InterviewService:
-    def __init__(self, repo: InterviewRepository, llm: LLMClient):
+    def __init__(self, repo: InterviewRepository, llm: LLMClient, tts: TTSClient):
         self.repo = repo
         self.llm = llm
+        self.tts = tts
 
     def create_session_with_questions(self, interview_id, member_interview_id, info: dict) -> InterviewSession:
         question_text = self.llm.generate_questions(info)
-        questions = [q.strip() for q in question_text.split("\n") if q.strip()][:7]
-        qa_flow = [{"question": q, "answer": None, "feedback": None, "follow_ups": []} for q in questions]
+        questions = [q.strip() for q in question_text.split("\n") if q.strip()][:MAX_QUESTIONS]
+
+        session_id = f"sess_{uuid.uuid4().hex[:8]}"
+        qa_flow = []
+
+        for i, q in enumerate(questions):
+            filename = f"{session_id}_{i}.mp3"
+            try:
+                s3_uri = self.tts.synthesize_to_s3(q, filename=filename)
+            except Exception as e:
+                s3_uri = None
+
+            qa_flow.append({
+                "question": q,
+                "audio_path": s3_uri,
+                "answer": None,
+                "feedback": None,
+                "follow_ups": [],
+                "follow_up_length": 0,
+            })
 
         session = InterviewSession(
             interview_id=interview_id,
             member_interview_id=member_interview_id,
-            session_id=f"sess_{uuid.uuid4().hex[:8]}",
+            session_id=session_id,
+            cursor=Cursor(0, -1),
             video_path=None,
             qa_flow=qa_flow,
+            question_length=len(questions),
             final_report=None,
         )
         self.repo.save_session(session)
@@ -39,7 +64,20 @@ class InterviewService:
             return None
 
         follow_ups = self.llm.generate_follow_up(session, index)
-        session.qa_flow[index].follow_ups = [{"question": q, "answer": None} for q in follow_ups[:2]]
+        enriched_follow_ups = []
+
+        for i, question in enumerate(follow_ups[:MAX_FOLLOW_UPS]):
+            filename = f"{session.session_id}_{index}_{i}.mp3"
+            audio_path = self.tts.synthesize_to_s3(question, filename=filename)
+            enriched_follow_ups.append({
+                "question": question,
+                "audio_path": audio_path,
+                "answer": None
+            })
+
+        session.qa_flow[index].follow_up_length = len(enriched_follow_ups)
+        session.qa_flow[index].follow_ups = enriched_follow_ups
+        session.cursor.f_idx += 1
         self.repo.update_session(session)
         return session
 
@@ -49,6 +87,7 @@ class InterviewService:
             return None
         try:
             session.qa_flow[index].follow_ups[f_index].answer = answer
+            session.cursor.f_idx += 1
             self.repo.update_session(session)
             return session
         except (IndexError, KeyError):
@@ -60,6 +99,8 @@ class InterviewService:
             return None
         feedback = self.llm.generate_feedback(session, index)
         session.qa_flow[index].feedback = feedback
+        session.cursor.q_idx += 1
+        session.cursor.f_idx = -1
         self.repo.update_session(session)
         return session
 
