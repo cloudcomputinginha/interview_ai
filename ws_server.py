@@ -73,6 +73,7 @@ class CustomProtocol(websockets.WebSocketServerProtocol):
     async def process_request(self, path, request_headers):
         # 요청 파싱
         query = parse_qs(urlparse(path).query)
+        logging.info(query)
         self.session_id = query.get("session_id", [None])[0]
         self.index = int(query.get("index", [0])[0])
         self.f_index = int(query.get("f_index", [-1])[0])
