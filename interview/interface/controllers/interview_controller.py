@@ -5,6 +5,7 @@ import json
 import os
 
 from interview.domain.interview import InterviewSession
+from interview.domain.info import InfoModel
 from interview.application.interview_service import InterviewService
 from interview.interface.dependencies import get_interview_service
 
@@ -14,17 +15,18 @@ router = APIRouter(prefix="/interview")
 def generate_questions(
     interview_id: str,
     member_interview_id: str,
+    info: InfoModel,
     service: InterviewService = Depends(get_interview_service)
     ):
-    try:
-        info_file_path = os.getenv("INFO_FILE_PATH", "info.json")
-        with open(info_file_path, "r") as f:
-            info = json.load(f)
-    except FileNotFoundError:
-        raise HTTPException(status_code=500, detail="Info file not found")
-    except json.JSONDecodeError:
-        raise HTTPException(status_code=500, detail="Invalid JSON in info file")
-    session = service.create_session_with_questions(interview_id, member_interview_id, info)
+    # try:
+    #     info_file_path = os.getenv("INFO_FILE_PATH", "info.json")
+    #     with open(info_file_path, "r") as f:
+    #         info = json.load(f)
+    # except FileNotFoundError:
+    #     raise HTTPException(status_code=500, detail="Info file not found")
+    # except json.JSONDecodeError:
+    #     raise HTTPException(status_code=500, detail="Invalid JSON in info file")
+    session = service.create_session_with_questions(interview_id, member_interview_id, info.dict())
     return session
 
 @router.patch("/session/{session_id}/qa/{index}/answer")
