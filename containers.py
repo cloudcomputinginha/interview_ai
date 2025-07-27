@@ -6,6 +6,7 @@ from interview.infra.repository.interview_repo_dynamo import InterviewRepository
 from interview.infra.llm.openai_client import GPTClient
 from interview.infra.llm.bedrock_client import BedrockClient
 from interview.infra.llm.openchat_client import OpenChatClient
+from interview.infra.llm.local_client import LocalClient
 from interview.infra.tts.polly_client import PollyClient
 from interview.infra.ocr.tesseract_client import TesseractOCRClient
 import os
@@ -32,6 +33,8 @@ class LLMClientFactory:
             return GPTClient()
         elif provider == "openchat":
             return OpenChatClient()
+        elif provider == "local":
+            return LocalClient()
         else:
             raise ValueError(f"Unsupported LLM_CLIENT: {provider}")
 
