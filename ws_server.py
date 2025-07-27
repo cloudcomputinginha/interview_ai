@@ -16,7 +16,7 @@ from amazon_transcribe.model import TranscriptEvent
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 FASTAPI_BASE_URL = "https://dev-ai-api.injob.store"
 
-# 인터뷰 파라미터
+# 인터뷰 파라미터(현재 하드코딩, Participants에 따라 값 직접 할당 방식으로 변경 예정)
 QUESTION_COUNT = 5        # index: 0..4
 FOLLOW_UP_COUNT = 2       # f_index: -1(메인), 0, 1  → 총 2개의 꼬리질문
 
