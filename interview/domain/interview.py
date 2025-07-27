@@ -1,6 +1,7 @@
 from typing import Optional, List, Tuple
 from dataclasses import dataclass
 from pydantic import BaseModel
+from interview.domain.info import InfoModel
 
 @dataclass
 class Cursor:
@@ -27,5 +28,6 @@ class InterviewSession(BaseModel):
     cursor: Cursor
     video_path: Optional[str] = None
     question_length: int
+    # info: InfoModel
     qa_flow: List[QA]
     final_report: Optional[str] = None

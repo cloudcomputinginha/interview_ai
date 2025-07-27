@@ -2,22 +2,28 @@ from interview.domain.interview import InterviewSession, Cursor
 from interview.domain.repository.interview_repo import InterviewRepository
 from interview.domain.llm.llm_client import LLMClient
 from interview.domain.tts.tts_client import TTSClient
+from interview.domain.ocr.ocr_client import OCRClient
 from typing import List
 import uuid
+import httpx
+import logging
 
 MAX_QUESTIONS = 5
 MAX_FOLLOW_UPS = 2
 
 class InterviewService:
-    def __init__(self, repo: InterviewRepository, llm: LLMClient, tts: TTSClient):
+    def __init__(self, repo: InterviewRepository, llm: LLMClient, tts: TTSClient, ocr: OCRClient):
         self.repo = repo
         self.llm = llm
         self.tts = tts
 
     def create_session_with_questions(self, interview_id, member_interview_id, info: dict) -> InterviewSession:
-        question_text = self.llm.generate_questions(info)
+        cover_letter = info["result"]["participants"][0]["coverLetterDTO"]["qnaList"]
+        resume_url = info["result"]["participants"][0]["resumeDTO"]["fileUrl"]
+        # notice_url = info["result"]["options"]["notice_url"]
+        question_text = self.llm.generate_questions(info, cover_letter)
         questions = [q.strip() for q in question_text.split("\n") if q.strip()][:MAX_QUESTIONS]
-
+        
         session_id = f"sess_{uuid.uuid4().hex[:8]}"
         qa_flow = []
 
@@ -45,9 +51,12 @@ class InterviewService:
             video_path=None,
             qa_flow=qa_flow,
             question_length=len(questions),
+            # info=info,
             final_report=None,
         )
         self.repo.save_session(session)
+        logging.info(info)
+        logging.info(session_id)
         return session
 
     def answer_main_question(self, session_id: str, index: int, answer: str) -> InterviewSession:
@@ -111,6 +120,22 @@ class InterviewService:
         final_report = self.llm.generate_final_report(session)
         session.final_report = final_report
         self.repo.update_session(session)
+
+        try:
+            post_payload = {
+                "interviewId": session.interview_id,
+                "memberInterviewId": session.member_interview_id
+            }
+
+            response = httpx.post(
+                "https://interview.play-qr.site/notifications/feedback",
+                json=post_payload,
+                timeout=5.0
+            )
+            response.raise_for_status()
+        except httpx.HTTPError as e:
+            print(f"❌ Failed to send report to external server: {e}")
+
         return session
 
     def get_all_sessions(self) -> List[InterviewSession]:
