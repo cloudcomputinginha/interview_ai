@@ -8,7 +8,7 @@ from langchain.schema import SystemMessage, HumanMessage
 class OpenChatClient(LLMClient):
     def __init__(self):
         self.use_llm = os.getenv("USE_LLM", "false").lower() == "true"
-        self.api_url = os.getenv("OPENCHAT_API_URL", "http://gpu-server-ip:8000/generate")
+        self.api_url = os.getenv("GPU_API_URL", "http://gpu-server-ip:8000/generate")
 
     def _invoke(self, messages: list) -> str:
         if not self.use_llm:
