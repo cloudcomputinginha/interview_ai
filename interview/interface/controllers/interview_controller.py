@@ -70,20 +70,20 @@ async def answer_follow_up_question(
         raise HTTPException(status_code=404, detail="Follow-up question not found")
     return session
 
-@router.post("/session/{session_id}/qa/{index}/feedback", response_model=InterviewSession)
-def generate_feedback(
-    session_id: str,
-    index: int,
-    service: InterviewService = Depends(get_interview_service)
-    ):
-    return service.generate_feedback(session_id, index)
+# @router.post("/session/{session_id}/qa/{index}/feedback", response_model=InterviewSession)
+# def generate_feedback(
+#     session_id: str,
+#     index: int,
+#     service: InterviewService = Depends(get_interview_service)
+#     ):
+#     return service.generate_feedback(session_id, index)
 
-@router.post("/session/{session_id}/report", response_model=InterviewSession)
-def generate_final_report(
-    session_id: str,
-    service: InterviewService = Depends(get_interview_service)
-    ):
-    return service.generate_final_report(session_id)
+# @router.post("/session/{session_id}/report", response_model=InterviewSession)
+# def generate_final_report(
+#     session_id: str,
+#     service: InterviewService = Depends(get_interview_service)
+#     ):
+#     return service.generate_final_report(session_id)
 
 @router.get("/ocr")
 def do_ocr(pdf_path:str):

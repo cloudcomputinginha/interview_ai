@@ -98,6 +98,8 @@ class InterviewService:
             session.qa_flow[index].follow_ups[f_index].answer = answer
             session.cursor.f_idx += 1
             self.repo.update_session(session)
+            if session.cursor.f_idx == MAX_FOLLOW_UPS:
+                generate_feedback(session_id, index)
             return session
         except (IndexError, KeyError):
             return None
@@ -110,6 +112,8 @@ class InterviewService:
         session.qa_flow[index].feedback = feedback
         session.cursor.q_idx += 1
         session.cursor.f_idx = -1
+        if session.cursor.q_idx == MAX_QUESTIONS:
+            generate_final_report(session_id)
         self.repo.update_session(session)
         return session
 
