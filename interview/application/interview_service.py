@@ -18,6 +18,13 @@ class InterviewService:
         self.tts = tts
 
     def create_session_with_questions(self, interview_id, member_interview_id, info: dict) -> InterviewSession:
+        if not interview_id or not interview_id.strip():
+            raise ValueError("interview_id, member_interview_id, and info must be provided")
+        if not member_interview_id or not member_interview_id.strip():
+            raise ValueError("interview_id, member_interview_id, and info must be provided")
+        if not info:
+            raise ValueError("interview_id, member_interview_id, and info must be provided")
+
         cover_letter = info["result"]["participants"][0]["coverLetterDTO"]["qnaList"]
         resume_url = info["result"]["participants"][0]["resumeDTO"]["fileUrl"]
         # notice_url = info["result"]["options"]["notice_url"]

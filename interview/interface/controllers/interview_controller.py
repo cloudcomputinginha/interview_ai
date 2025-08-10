@@ -29,6 +29,13 @@ def generate_questions(
     #     raise HTTPException(status_code=500, detail="Info file not found")
     # except json.JSONDecodeError:
     #     raise HTTPException(status_code=500, detail="Invalid JSON in info file")
+    if not interview_id or interview_id.strip() == "":
+        raise HTTPException(status_code=400, detail="interview_id, member_interview_id, info are required")
+    if not member_interview_id or member_interview_id.strip() == "":
+        raise HTTPException(status_code=400, detail="interview_id, member_interview_id, info are required")
+    if not info or not info.dict():
+        raise HTTPException(status_code=400, detail="interview_id, member_interview_id, info are required")
+        
     session = service.create_session_with_questions(interview_id, member_interview_id, info.dict())
     return session
 
