@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Body, HTTPException, Depends
 from fastapi.requests import Request
 from typing import List
-import copy
+import copy, asyncio
 import json
 import os
 import fitz  # PyMuPDF
@@ -16,21 +16,19 @@ from interview.interface.dependencies import get_interview_service
 router = APIRouter(prefix="/interview")
 
 @router.post("/generate_questions", response_model=List[InterviewSession])
-def generate_questions(
+async def generate_questions(
     info: InfoModel,
     service: InterviewService = Depends(get_interview_service)
 ):
-    # ── 검증 ─────────────────────────────────────────────────────────
+    # ── 기본 검증 ───────────────────────────
     if not info or not info.result:
         raise HTTPException(status_code=400, detail="result가 비었습니다.")
 
     result = info.result
 
-    # 인터뷰 ID는 ① result.interviewId 우선, 없으면 ② result.interview?.interviewId
     interview_id = getattr(result, "interviewId", None)
     if interview_id is None and getattr(result, "interview", None):
         interview_id = getattr(result.interview, "interviewId", None)
-
     if interview_id is None:
         raise HTTPException(status_code=400, detail="interviewId가 없습니다.")
 
@@ -38,28 +36,28 @@ def generate_questions(
     if not participants:
         raise HTTPException(status_code=400, detail="participants가 비었습니다.")
 
-    # ── 참가자별 세션 생성 ───────────────────────────────────────────
-    sessions: List[InterviewSession] = []
+    base_dict = info.model_dump()
 
-    # InfoModel → dict (deepcopy 후 participants를 [p]로 덮어써서 service에 전달)
-    base_dict = info.model_dump()  # pydantic v2
-    for p in participants:
+    # ── 참가자별 세션 생성 비동기 태스크 ───────────────────────────
+    async def create_for_participant(p):
         member_interview_id = getattr(p, "memberInterviewId", None)
-
         if member_interview_id is None:
             raise HTTPException(status_code=400, detail="participant에 memberInterviewId가 없습니다.")
 
-        # service가 participants[0]을 참조하므로, 매 참가자를 단독 원소로 넣어줌
+        # 1명만 있는 payload로 변경
         info_one = copy.deepcopy(base_dict)
         info_one["result"]["participants"] = [p.model_dump()]
 
-        # 기존 service 시그니처 그대로 재사용
-        session = service.create_session_with_questions(
+        # create_session_with_questions가 동기라면 to_thread 사용
+        return await asyncio.to_thread(
+            service.create_session_with_questions,
             str(interview_id),
             str(member_interview_id),
             info_one
         )
-        sessions.append(session)
+
+    # ── 병렬 실행 ───────────────────────────
+    sessions = await asyncio.gather(*(create_for_participant(p) for p in participants))
 
     return sessions
 
