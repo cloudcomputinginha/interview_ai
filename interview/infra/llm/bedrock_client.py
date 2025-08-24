@@ -42,10 +42,10 @@ class BedrockClient(LLMClient):
         너는 면접관이야. 다음은 지원자 정보야.
 
         지원 회사: {info["result"]["interview"]["corporateName"]}
-        지원 직무: {info["result"]["options"]["questionNumber"]}
+        지원 직무: {info["result"]["interview"]["jobName"]}
         자기소개서: {cover_letter}
 
-        이 정보를 바탕으로 본질적인 면접 질문을 {info["result"]["interview"]["jobName"]}개 작성해줘.
+        이 정보를 바탕으로 본질적인 면접 질문을 {info["result"]["options"]["questionNumber"]}개 작성해줘.
         네가 생성한 질문 문자열을 line 별로 split하는 규칙 기반 알고리즘 수행 예정이야.
         그러니 면접 질문만 줄바꿈을 통해 답변해주고, "예, 알겠습니다"와 같은 답변은 절대 포함시키지 마.
         다시 한번 말할게. 질문만 줄바꿈을 통해 5개 생성해.
