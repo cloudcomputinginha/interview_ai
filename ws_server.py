@@ -16,9 +16,9 @@ from amazon_transcribe.model import TranscriptEvent
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 FASTAPI_BASE_URL = "https://dev-ai-api.injob.store"
 
-# 인터뷰 파라미터(현재 하드코딩, Participants에 따라 값 직접 할당 방식으로 변경 예정)
-QUESTION_COUNT = 5        # index: 0..4
-FOLLOW_UP_COUNT = 2       # f_index: -1(메인), 0, 1  → 총 2개의 꼬리질문
+# 기존 인터뷰 파라미터 (참고용으로 남겨두지만, 실제 로직은 FastAPI 결과에 따름)
+QUESTION_COUNT = 5
+FOLLOW_UP_COUNT = 2
 
 class CustomProtocol(websockets.WebSocketServerProtocol):
     async def process_request(self, path, request_headers):
@@ -35,8 +35,8 @@ class SessionState:
     session_id: str
     sockets: Set[CustomProtocol] = field(default_factory=set)
     by_pid: Dict[str, Set[CustomProtocol]] = field(default_factory=lambda: defaultdict(set))
-    order: List[str] = field(default_factory=list)           # 발언 순서
-    index: int = 0                                           # 공유 index (0..QUESTION_COUNT-1)
+    order: List[str] = field(default_factory=list)          # 발언 순서
+    index: int = 0                                          # 공유 index (0..QUESTION_COUNT-1)
     active_pid: Optional[str] = None
 
     # 참가자별 f_index 상태 (없으면 -1로 간주)
@@ -49,6 +49,12 @@ class SessionState:
     t_handler_obj: Optional["MyEventHandler"] = None
 
     lock: asyncio.Lock = field(default_factory=asyncio.Lock)
+    
+    # ADDED: 준비 상태 관리를 위한 필드 추가
+    expected_pids: Set[str] = field(default_factory=set)  # 입장해야 할 전체 참가자 ID
+    ready_pids: Set[str] = field(default_factory=set)     # '준비' 신호를 보낸 참가자 ID
+    info_payload: Optional[dict] = None                   # generate_questions에 보낼 info 데이터
+    questions_generated: bool = False                     # 질문 생성 API 호출 여부 (중복 방지)
 
 SESSIONS: Dict[str, SessionState] = {}
 ROOMS: Dict[str, Set[CustomProtocol]] = defaultdict(set)
@@ -251,6 +257,37 @@ async def advance_turn(session: SessionState):
 
         await emit_state(session)
 
+# ADDED: 모든 참가자 준비 완료 시 질문 생성을 요청하는 함수
+async def check_readiness_and_generate_questions(session: SessionState):
+    async with session.lock:
+        # 초기화가 안됐거나, 이미 질문 생성을 했다면 실행하지 않음
+        if session.questions_generated or not session.expected_pids:
+            return
+        
+        # 준비된 참가자 집합과 전체 참가자 집합이 동일한지 확인
+        if session.ready_pids == session.expected_pids:
+            logging.info(f"[{session.session_id}] ✅ 모든 참가자 준비 완료. 질문 생성을 시작합니다.")
+            session.questions_generated = True # 중복 실행 방지
+            
+            try:
+                async with httpx.AsyncClient(verify=False) as client:
+                    response = await client.post(
+                        f"{FASTAPI_BASE_URL}/interview/generate_questions",
+                        json=session.info_payload,
+                        timeout=60.0 # LLM 호출이 길어질 수 있으므로 타임아웃을 넉넉하게 설정
+                    )
+                    response.raise_for_status() # 2xx 상태 코드가 아니면 에러 발생
+                
+                logging.info(f"[{session.session_id}] 🚀 질문 생성 API 호출 성공 ({response.status_code})")
+                
+                # 모든 클라이언트에게 면접 시작 가능 신호 전송
+                await broadcast_json(session.session_id, {"type": "all_ready"})
+
+            except httpx.HTTPError as e:
+                logging.error(f"[{session.session_id}] ❌ 질문 생성 API 호출 실패: {e}")
+                session.questions_generated = False # 실패 시 다시 시도할 수 있도록 플래그 초기화
+                await broadcast_json(session.session_id, {"type": "error", "message": "Failed to generate questions."})
+
 # ── Connection handler ─────────────────────────────────────────────────────
 
 async def handle_connection(ws: CustomProtocol):
@@ -259,6 +296,10 @@ async def handle_connection(ws: CustomProtocol):
     session_id = ws.session_id
     pid = getattr(ws, "participant_id", None)
     mode = getattr(ws, "mode", "stt")
+    
+    if not session_id:
+        logging.warning("session_id 없이 연결 시도됨. 연결을 종료합니다.")
+        return
 
     session = SESSIONS.get(session_id)
     if not session:
@@ -326,14 +367,44 @@ async def handle_connection(ws: CustomProtocol):
                 # 제어 JSON
                 try:
                     obj = json.loads(message)
+                    msg_type = obj.get("type")
                 except Exception:
                     continue
+                
+                # MODIFIED: 새로운 제어 메시지 처리 로직 추가
+                if msg_type == "init":
+                    async with session.lock:
+                        session.expected_pids = set(obj.get("expected_participants", []))
+                        session.info_payload = obj.get("info_payload")
+                        session.questions_generated = False # 재입장 시를 위해 초기화
+                        logging.info(f"[{session_id}] 📝 세션 초기화됨. 전체 참가자: {session.expected_pids}")
+                    
+                    # 현재 준비상태 브로드캐스트
+                    await broadcast_json(session_id, {
+                        "type": "ready_status",
+                        "ready_participants": list(session.ready_pids),
+                        "expected_participants": list(session.expected_pids),
+                    })
 
-                if mode == "team" and isinstance(obj, dict):
-                    t = obj.get("type")
-                    if t == "advance":
+                elif msg_type == "ready":
+                    if pid:
+                        session.ready_pids.add(pid)
+                        logging.info(f"[{session_id}] 👍 참가자 준비 완료: {pid}. 현재 준비: {list(session.ready_pids)}")
+                        
+                        # 현재 준비상태 브로드캐스트
+                        await broadcast_json(session_id, {
+                            "type": "ready_status",
+                            "ready_participants": list(session.ready_pids),
+                            "expected_participants": list(session.expected_pids),
+                        })
+                        
+                        # 모든 참가자가 준비되었는지 확인하고 질문 생성 시도
+                        await check_readiness_and_generate_questions(session)
+
+                elif mode == "team" and isinstance(obj, dict):
+                    if msg_type == "advance":
                         await advance_turn(session)
-                    elif t == "set_order":
+                    elif msg_type == "set_order":
                         order = obj.get("order")
                         if isinstance(order, list) and all(isinstance(x, str) for x in order):
                             async with session.lock:
@@ -351,7 +422,7 @@ async def handle_connection(ws: CustomProtocol):
                                     session.active_pid = session.order[0] if session.order else None
                                     await stop_stt(session)
                             await emit_state(session)
-                    elif t == "set_active":
+                    elif msg_type == "set_active":
                         new_pid = obj.get("participant_id")
                         if isinstance(new_pid, str) and new_pid in session.order:
                             async with session.lock:
@@ -362,7 +433,7 @@ async def handle_connection(ws: CustomProtocol):
                             await emit_state(session)
 
     except websockets.ConnectionClosed:
-        logging.info("❌ 클라이언트 연결 종료")
+        logging.info(f"❌ 클라이언트 연결 종료: pid={pid}")
     finally:
         # 정리
         session.sockets.discard(ws)
